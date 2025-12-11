@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>CareTrek - Performance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background-color: #0f172a; /* slate-900 */
+        color: #f8fafc; /* slate-50 */
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: #1e293b; }
+      ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.1/",
+    "react/": "https://esm.sh/react@^19.2.1/",
+    "recharts": "https://esm.sh/recharts@^3.5.1",
+    "lucide-react": "https://esm.sh/lucide-react@^0.560.0"
+  }
+}
+</script>
+</head>
+  <body class="min-h-screen flex flex-col relative selection:bg-lime-400/30">
+    
+    <!-- Main Content Area -->
+    <main id="app-content" class="flex-1 overflow-y-auto pb-24 p-6 max-w-md mx-auto w-full"></main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-lg border-t border-slate-800 pb-safe pt-2 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-50">
+      <div class="flex justify-between items-center max-w-md mx-auto h-16" id="bottom-nav">
+        <!-- Nav items injected by JS -->
+      </div>
+    </nav>
+
+    <script>
+      // --- 1. DADOS & CONSTANTES ---
+      const ATHLETE_DATA = {
+        name: "Alexandre Souza",
+        category: "Corrida / Ciclismo",
+        level: "Amador Engajado",
+        metrics: {
+          hr: { id: 'hr', label: 'FC Repouso', value: 52, unit: 'bpm', status: 'good', trend: 'down', history: [55, 54, 53, 52, 53, 52, 52] },
+          sleep: { id: 'sleep', label: 'Qualidade do Sono', value: '6h 30m', unit: '', status: 'warning', trend: 'stable', history: [6.5, 7, 6, 5.5, 6.5, 6.5, 6.5] },
+          vo2: { id: 'vo2', label: 'VO2 Max', value: 48, unit: 'mL/kg/min', status: 'good', trend: 'up', history: [46, 46.5, 47, 47.2, 47.5, 47.8, 48] }
+        },
+        appointments: [
+          { id: '1', type: 'Nutrição', doctor: 'Dr. Mendes', date: '15/Dez', time: '10:00h', isVirtual: true },
+          { id: '2', type: 'Fisioterapia', doctor: 'Dra. Clara', date: '20/Dez', time: '14:00h', isVirtual: true }
+        ],
+        nutritionPlan: { title: "Plano de Aumento de Endurance", meta: "2800 kcal/dia" }
+      };
+
+      // Ícones SVG em formato de string para fácil injeção
+      const ICONS = {
+        Activity: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+        Users: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        User: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+        Moon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+        Wind: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>',
+        RefreshCw: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>',
+        ArrowUp: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>',
+        ArrowDown: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m12 5 7 7-7 7"/><path d="M12 19V5"/></svg>', // Rotated logic handled by icon choice or css
+        Minus: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>',
+        Calendar: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>',
+        Video: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>',
+        FileText: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>',
+        Dumbbell: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>',
+        ChevronRight: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+        PlusCircle: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>',
+        Settings: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.72l-.15.1a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
+        CreditCard: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>',
+        Bluetooth: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>',
+        HelpCircle: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
+        LogOut: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>'
+      };
+
+      // --- 2. UTILITÁRIOS ---
+      
+      // Gerador de gráfico SVG simples (simula Recharts Area)
+      function generateSparkline(data, colorHex, id) {
+        const width = 100;
+        const height = 40;
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min || 1;
+        
+        // Mapeia dados para coordenadas pontos (x,y)
+        const points = data.map((val, i) => {
+          const x = (i / (data.length - 1)) * width;
+          // Normaliza Y e inverte (SVG y=0 é topo)
+          const normalizedY = (val - min) / range;
+          const y = height - (normalizedY * (height * 0.7) + (height * 0.15)); // 70% altura usada
+          return [x, y];
+        });
+
+        // Cria o path da linha
+        const linePathCmd = `M ${points.map(p => `${p[0]},${p[1]}`).join(' L ')}`;
+        
+        // Cria o path da área (fecha no fundo)
+        const areaPathCmd = `${linePathCmd} L ${width},${height} L 0,${height} Z`;
+
+        return `
+          <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" class="overflow-visible">
+            <defs>
+              <linearGradient id="grad-${id}" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="${colorHex}" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="${colorHex}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="${areaPathCmd}" fill="url(#grad-${id})" stroke="none" />
+            <path d="${linePathCmd}" fill="none" stroke="${colorHex}" stroke-width="2" vector-effect="non-scaling-stroke" />
+          </svg>
+        `;
+      }
+
+      // --- 3. COMPONENTES (Render Functions) ---
+
+      function renderPerformance() {
+        // Cores baseadas no Tailwind: Lime-400 (#a3e635), Yellow-400 (#facc15), Slate-400 (#94a3b8)
+        const colors = { good: '#a3e635', warning: '#facc15', neutral: '#94a3b8' };
+        
+        const metricsHtml = Object.values(ATHLETE_DATA.metrics).map(m => {
+          const colorClass = m.status === 'good' ? 'text-lime-400' : m.status === 'warning' ? 'text-yellow-400' : 'text-slate-400';
+          const bgClass = m.status === 'good' ? 'bg-lime-400/10' : m.status === 'warning' ? 'bg-yellow-400/10' : 'bg-slate-700/50';
+          const trendIcon = m.trend === 'up' ? ICONS.ArrowUp : m.trend === 'down' ? ICONS.ArrowDown : ICONS.Minus;
+          const icon = m.id === 'hr' ? ICONS.Activity : m.id === 'sleep' ? ICONS.Moon : ICONS.Wind;
+          const chartSvg = generateSparkline(m.history, colors[m.status], m.id);
+
+          return `
+            <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-lg mb-4 hover:scale-[1.01] transition-transform duration-200">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="p-2 rounded-lg ${bgClass} ${colorClass}">${icon}</div>
+                  <span class="text-slate-400 text-sm font-medium uppercase tracking-wider">${m.label}</span>
+                </div>
+                <div class="flex items-center text-xs font-bold ${colorClass}">
+                  ${trendIcon}
+                </div>
+              </div>
+              <div class="flex items-baseline gap-2 mb-4">
+                <span class="text-3xl font-bold text-white">${m.value}</span>
+                ${m.unit ? `<span class="text-slate-500 text-sm">${m.unit}</span>` : ''}
+              </div>
+              <div class="h-16 w-full rounded-lg overflow-hidden relative">
+                ${chartSvg}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="animate-fade-in">
+            <header class="mb-6">
+              <h1 class="text-2xl font-bold text-white tracking-tight">Performance Tracker</h1>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                </span>
+                <p class="text-yellow-500 text-sm font-medium">Recuperação Necessária</p>
+              </div>
+            </header>
+
+            <div class="mb-6 flex justify-end">
+              <button id="btn-sync" class="flex items-center gap-2 text-xs font-semibold text-lime-400 bg-lime-400/10 px-3 py-2 rounded-full hover:bg-lime-400/20 transition-all active:scale-95">
+                <span id="icon-sync" class="origin-center transition-transform">${ICONS.RefreshCw}</span>
+                <span id="text-sync">Sincronizar Dados</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-1">
+              ${metricsHtml}
+            </div>
+
+            <div class="mt-6 bg-gradient-to-r from-indigo-900 to-slate-900 p-4 rounded-xl border-l-4 border-indigo-500 shadow-lg">
+              <h3 class="text-indigo-300 text-sm font-bold uppercase mb-1">CareTrek AI Insight</h3>
+              <p class="text-slate-300 text-sm leading-relaxed">
+                Sua média de sono está abaixo do ideal. Priorize o descanso hoje à noite para maximizar a recuperação muscular do último treino.
+              </p>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderConsulting() {
+        const apptsHtml = ATHLETE_DATA.appointments.map(appt => `
+          <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col gap-3 hover:border-slate-600 transition-colors">
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="text-white font-bold">${appt.type}</h3>
+                <p class="text-slate-400 text-sm">${appt.doctor}</p>
+              </div>
+              <div class="text-right">
+                <span class="block text-lime-400 font-bold">${appt.date}</span>
+                <span class="block text-slate-400 text-xs">${appt.time}</span>
+              </div>
+            </div>
+            ${appt.isVirtual ? `
+              <button class="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+                ${ICONS.Video} Entrar na Sala Virtual
+              </button>
+            ` : ''}
+          </div>
+        `).join('');
+
+        return `
+          <div class="animate-fade-in">
+            <header class="mb-6">
+              <h1 class="text-2xl font-bold text-white tracking-tight">Tríade da Performance</h1>
+              <p class="text-slate-400 text-sm">Gerencie seu suporte multidisciplinar</p>
+            </header>
+
+            <div class="flex justify-center gap-8 mb-8 py-4">
+              ${['Fisio', 'Nutri', 'Psico'].map(t => `
+                <div class="flex flex-col items-center gap-2">
+                  <div class="w-14 h-14 rounded-full bg-slate-800 border-2 border-lime-400 flex items-center justify-center shadow-[0_0_15px_rgba(163,230,53,0.3)]">
+                    <span class="text-lime-400 font-bold text-xs">${t}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <section class="mb-8">
+              <h2 class="text-white font-semibold text-lg mb-4 flex items-center gap-2">
+                <span class="text-lime-400">${ICONS.Calendar}</span> Próximos Agendamentos
+              </h2>
+              <div class="space-y-3">${apptsHtml}</div>
+            </section>
+
+            <section class="mb-8">
+              <h2 class="text-white font-semibold text-lg mb-4 flex items-center gap-2">
+                <span class="text-lime-400">${ICONS.FileText}</span> Planos Ativos
+              </h2>
+              <div class="grid gap-3">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center justify-between group cursor-pointer hover:border-lime-500/50 transition-colors active:bg-slate-800/80">
+                  <div class="flex items-center gap-3">
+                    <div class="bg-orange-500/10 p-2 rounded-lg text-orange-500">${ICONS.FileText}</div>
+                    <div>
+                      <h4 class="text-white font-medium text-sm">Plano Nutricional</h4>
+                      <p class="text-slate-500 text-xs">${ATHLETE_DATA.nutritionPlan.meta}</p>
+                    </div>
+                  </div>
+                  <div class="text-slate-600 group-hover:text-white transition-colors">${ICONS.ChevronRight}</div>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center justify-between group cursor-pointer hover:border-lime-500/50 transition-colors active:bg-slate-800/80">
+                  <div class="flex items-center gap-3">
+                    <div class="bg-blue-500/10 p-2 rounded-lg text-blue-500">${ICONS.Dumbbell}</div>
+                    <div>
+                      <h4 class="text-white font-medium text-sm">Biblioteca de Exercícios</h4>
+                      <p class="text-slate-500 text-xs">Fisioterapia Preventiva</p>
+                    </div>
+                  </div>
+                  <div class="text-slate-600 group-hover:text-white transition-colors">${ICONS.ChevronRight}</div>
+                </div>
+              </div>
+            </section>
+
+            <button class="w-full bg-lime-500 hover:bg-lime-400 text-slate-900 font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-lime-500/20 active:scale-[0.98] transition-all">
+              ${ICONS.PlusCircle} Agendar Nova Sessão
+            </button>
+          </div>
+        `;
+      }
+
+      function renderProfile() {
+        const createItem = (icon, label, value = '') => `
+          <div class="flex items-center justify-between p-4 border-b border-slate-800 last:border-0 cursor-pointer active:bg-slate-800/50 transition-colors">
+            <div class="flex items-center gap-3">
+              <div class="text-slate-400">${icon}</div>
+              <span class="text-slate-200 text-sm font-medium">${label}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              ${value ? `<span class="text-slate-500 text-xs">${value}</span>` : ''}
+              <div class="text-slate-600">${ICONS.ChevronRight}</div>
+            </div>
+          </div>
+        `;
+
+        return `
+          <div class="animate-fade-in">
+            <header class="flex flex-col items-center py-8">
+              <div class="w-24 h-24 bg-gradient-to-br from-slate-700 to-slate-800 rounded-full flex items-center justify-center border-4 border-slate-800 shadow-xl mb-4 text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <h1 class="text-2xl font-bold text-white">${ATHLETE_DATA.name}</h1>
+              <p class="text-lime-400 text-sm font-medium bg-lime-400/10 px-3 py-1 rounded-full mt-2 border border-lime-400/20">
+                ${ATHLETE_DATA.level}
+              </p>
+              <p class="text-slate-500 text-sm mt-1">${ATHLETE_DATA.category}</p>
+            </header>
+
+            <div class="bg-slate-800/50 rounded-xl overflow-hidden mb-6 backdrop-blur-sm">
+              ${createItem(ICONS.CreditCard, 'Plano de Assinatura', 'Pro Anual')}
+              ${createItem(ICONS.Bluetooth, 'Conectar Dispositivos', 'Garmin Connect™')}
+              ${createItem(ICONS.Settings, 'Configurações do App')}
+              ${createItem(ICONS.HelpCircle, 'Ajuda e Suporte')}
+            </div>
+
+            <button class="w-full flex items-center justify-center gap-2 text-red-400 p-4 rounded-xl border border-red-900/30 bg-red-900/10 hover:bg-red-900/20 active:scale-[0.98] transition-all">
+              ${ICONS.LogOut}
+              <span class="font-semibold">Sair da Conta</span>
+            </button>
+            
+            <div class="mt-8 text-center">
+              <p class="text-slate-700 text-xs">CareTrek App v1.0.4</p>
+            </div>
+          </div>
+        `;
+      }
+
+      // --- 4. LÓGICA PRINCIPAL (APP) ---
+
+      let currentTab = 'performance';
+
+      function updateNav() {
+        const tabs = [
+          { id: 'performance', label: 'Performance', icon: ICONS.Activity },
+          { id: 'consulting', label: 'Consultorias', icon: ICONS.Users },
+          { id: 'profile', label: 'Perfil', icon: ICONS.User }
+        ];
+
+        const navHtml = tabs.map(tab => {
+          const isActive = currentTab === tab.id;
+          const activeColor = isActive ? 'text-lime-400 -translate-y-2' : 'text-slate-500';
+          const bgActive = isActive ? 'bg-lime-400/20 shadow-[0_0_15px_rgba(163,230,53,0.3)]' : '';
+          
+          return `
+            <button onclick="switchTab('${tab.id}')" class="flex flex-col items-center gap-1 w-16 transition-all duration-300 ${activeColor}">
+              <div class="p-2 rounded-full transition-all ${bgActive}">
+                ${tab.icon}
+              </div>
+              <span class="text-[10px] font-medium">${tab.label}</span>
+            </button>
+          `;
+        }).join('');
+
+        document.getElementById('bottom-nav').innerHTML = navHtml;
+      }
+
+      function switchTab(tabId) {
+        currentTab = tabId;
+        render();
+      }
+
+      function render() {
+        const contentEl = document.getElementById('app-content');
+        let html = '';
+        
+        if (currentTab === 'performance') html = renderPerformance();
+        else if (currentTab === 'consulting') html = renderConsulting();
+        else if (currentTab === 'profile') html = renderProfile();
+        
+        contentEl.innerHTML = html;
+        updateNav();
+
+        // Bind events specific to views
+        if (currentTab === 'performance') {
+          const btn = document.getElementById('btn-sync');
+          if (btn) {
+            btn.onclick = () => {
+              const icon = document.getElementById('icon-sync');
+              const text = document.getElementById('text-sync');
+              icon.classList.add('animate-spin');
+              text.innerText = 'Sincronizando...';
+              
+              setTimeout(() => {
+                icon.classList.remove('animate-spin');
+                text.innerText = 'Sincronizar Dados';
+              }, 2000);
+            };
+          }
+        }
+      }
+
+      // Iniciar
+      window.switchTab = switchTab; // Expose to global scope for HTML onclick
+      render();
+
+    </script>
+  </body>
+</html>
